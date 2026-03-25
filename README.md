@@ -20,7 +20,7 @@ Printer names are resolved dynamically via `lpstat` + `grep`, so minor naming va
 | `printer_switch.sh` | Main script — detects location, switches printer |
 | `com.user.printer-switch.plist` | launchd agent — runs the script every 3 minutes |
 | `install.sh` | One-step installer |
-| `INSTALL_README.md` | Detailed installation instructions (in Russian) |
+| `uninstall.sh` | One-step uninstaller |
 
 ## Quick install
 
@@ -33,7 +33,11 @@ chmod +x install.sh
 
 ## Configuration
 
-Before installing, edit `printer_switch.sh` and set your home router's MAC address:
+After installing, edit the config file with your home router's MAC address:
+
+```bash
+nano ~/.config/printer_switch/config
+```
 
 ```bash
 HOME_GATEWAY_MAC="your:mac:address:here"
@@ -42,7 +46,7 @@ HOME_GATEWAY_MAC="your:mac:address:here"
 To find your home router's MAC, run this while connected to your home Wi-Fi:
 
 ```bash
-arp -n $(netstat -rn | grep default | grep en0 | awk '{print $2}' | head -1)
+arp -n $(route -n get default | awk '/gateway:/{print $2}')
 ```
 
 ## Logs
@@ -55,9 +59,7 @@ cat /tmp/printer_switch.error.log  # errors
 ## Uninstall
 
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.user.printer-switch.plist
-rm ~/Library/LaunchAgents/com.user.printer-switch.plist
-sudo rm /usr/local/bin/printer_switch.sh
+./uninstall.sh
 ```
 
 ## Requirements

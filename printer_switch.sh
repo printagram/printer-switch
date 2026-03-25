@@ -2,10 +2,10 @@
 # printer_switch.sh
 # /usr/local/bin/printer_switch.sh
 # Auto-switch default printer based on gateway router MAC address
-# Home:   6c:99:61:36:ae:a7 → EPSON_M1170_Series
-# Office: any other MAC      → EPSON_WF_4745
+# Home:   configured in ~/.config/printer_switch/config
+# Office: any other MAC
 
-HOME_GATEWAY_MAC="6c:99:61:36:ae:a7"
+CONFIG_FILE="$HOME/.config/printer_switch/config"
 LOG="/tmp/printer_switch.log"
 
 log() {
@@ -14,8 +14,25 @@ log() {
 
 log "--- Script started ---"
 
-GATEWAY_IP=$(netstat -rn | grep default | grep en0 | awk '{print $2}' | head -1)
+# Load config
+if [ ! -f "$CONFIG_FILE" ]; then
+    log "Config not found: $CONFIG_FILE — exiting"
+    exit 0
+fi
+source "$CONFIG_FILE"
+
+if [ -z "$HOME_GATEWAY_MAC" ]; then
+    log "HOME_GATEWAY_MAC not set in config — exiting"
+    exit 0
+fi
+
+GATEWAY_IP=$(route -n get default 2>/dev/null | awk '/gateway:/{print $2}')
 log "Gateway IP: '$GATEWAY_IP'"
+
+if [ -z "$GATEWAY_IP" ]; then
+    log "Gateway IP not detected — network unavailable, exiting"
+    exit 0
+fi
 
 GATEWAY_MAC=$(arp -n "$GATEWAY_IP" 2>/dev/null | awk '{print $4}')
 log "Gateway MAC: '$GATEWAY_MAC'"
@@ -23,8 +40,9 @@ log "Gateway MAC: '$GATEWAY_MAC'"
 CURRENT_PRINTER=$(lpstat -d 2>/dev/null | awk '{print $NF}')
 log "Current printer: '$CURRENT_PRINTER'"
 
-if [ -z "$GATEWAY_MAC" ]; then
-    log "MAC not detected — network unavailable, exiting"
+# Validate MAC (not empty, not incomplete)
+if [ -z "$GATEWAY_MAC" ] || [[ "$GATEWAY_MAC" == *"incomplete"* ]]; then
+    log "MAC not detected or incomplete — network unavailable, exiting"
     exit 0
 fi
 
