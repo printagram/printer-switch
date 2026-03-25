@@ -7,7 +7,7 @@ macOS utility that auto-switches the default printer based on network location.
 Single bash script (`printer_switch.sh`) executed every 3 minutes by a launchd agent.
 
 Detection method: gateway router MAC address via `arp`.
-- Home MAC `6c:99:61:36:ae:a7` → grep for `M1170` in `lpstat -a`
+- Home MAC (from config) → grep for `M1170` in `lpstat -a`
 - Any other MAC → grep for `WF` in `lpstat -a`
 
 ## Key design decisions

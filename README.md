@@ -6,7 +6,7 @@ The script runs every 3 minutes via `launchd`, detects the current network by ch
 
 ## How it works
 
-- **Home** (gateway MAC `6c:99:61:36:ae:a7`) → selects printer matching `M1170` (Epson M1170 Series)
+- **Home** (gateway MAC from config) → selects printer matching `M1170` (Epson M1170 Series)
 - **Office** (any other gateway) → selects printer matching `WF` (Epson WorkForce WF-4745)
 - If the correct printer is already set — nothing happens
 - If the network is unavailable — the script exits silently

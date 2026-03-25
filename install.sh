@@ -21,7 +21,7 @@ if [ ! -f "$CONFIG_FILE" ]; then
     cat > "$CONFIG_FILE" <<'CONF'
 # Printer Switch Configuration
 # Home router MAC address (lowercase, colon-separated)
-HOME_GATEWAY_MAC="6c:99:61:36:ae:a7"
+HOME_GATEWAY_MAC="your:mac:address:here"
 CONF
     echo "  OK — edit HOME_GATEWAY_MAC to match your router"
 else
