@@ -1,73 +1,69 @@
 #!/bin/bash
 # printer_switch.sh
 # /usr/local/bin/printer_switch.sh
-# Auto-switch default printer based on gateway router MAC address
-# Home:   configured in ~/.config/printer_switch/config
-# Office: any other MAC
+# Автопереключение принтера и позиции Dock по MAC-адресу роутера
+# Дом:  6c:99:61:36:ae:a7 → EPSON_M1170_Series + Dock справа
+# Офис: любой другой MAC  → EPSON_WF_4745 + Dock слева
 
-CONFIG_FILE="$HOME/.config/printer_switch/config"
+HOME_GATEWAY_MAC="6c:99:61:36:ae:a7"
 LOG="/tmp/printer_switch.log"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG"
 }
 
-log "--- Script started ---"
+log "--- Скрипт запущен ---"
 
-# Load config
-if [ ! -f "$CONFIG_FILE" ]; then
-    log "Config not found: $CONFIG_FILE — exiting"
-    exit 0
-fi
-source "$CONFIG_FILE"
-
-if [ -z "$HOME_GATEWAY_MAC" ]; then
-    log "HOME_GATEWAY_MAC not set in config — exiting"
-    exit 0
-fi
-
-GATEWAY_IP=$(route -n get default 2>/dev/null | awk '/gateway:/{print $2}')
+GATEWAY_IP=$(netstat -rn | grep default | grep en0 | awk '{print $2}' | head -1)
 log "Gateway IP: '$GATEWAY_IP'"
-
-if [ -z "$GATEWAY_IP" ]; then
-    log "Gateway IP not detected — network unavailable, exiting"
-    exit 0
-fi
 
 GATEWAY_MAC=$(arp -n "$GATEWAY_IP" 2>/dev/null | awk '{print $4}')
 log "Gateway MAC: '$GATEWAY_MAC'"
 
-CURRENT_PRINTER=$(lpstat -d 2>/dev/null | awk '{print $NF}')
-log "Current printer: '$CURRENT_PRINTER'"
-
-# Validate MAC (not empty, not incomplete)
-if [ -z "$GATEWAY_MAC" ] || [[ "$GATEWAY_MAC" == *"incomplete"* ]]; then
-    log "MAC not detected or incomplete — network unavailable, exiting"
+if [ -z "$GATEWAY_MAC" ]; then
+    log "MAC не определён — сеть недоступна, выходим"
     exit 0
 fi
+
+# --- Принтер ---
+CURRENT_PRINTER=$(lpstat -d 2>/dev/null | awk '{print $NF}')
+log "Текущий принтер: '$CURRENT_PRINTER'"
 
 if [ "$GATEWAY_MAC" = "$HOME_GATEWAY_MAC" ]; then
     TARGET_PRINTER=$(lpstat -a 2>/dev/null | grep -i "M1170" | awk '{print $1}' | head -1)
-    log "Location: HOME → target printer: '$TARGET_PRINTER'"
+    TARGET_DOCK="left"
+    LOCATION="ДОМ"
 else
     TARGET_PRINTER=$(lpstat -a 2>/dev/null | grep -i "WF" | awk '{print $1}' | head -1)
-    log "Location: OFFICE → target printer: '$TARGET_PRINTER'"
+    TARGET_DOCK="left"
+    LOCATION="ОФИС"
 fi
 
-if [ -z "$TARGET_PRINTER" ]; then
-    log "Target printer not found in lpstat — exiting"
-    exit 0
+log "Локация: $LOCATION → принтер: '$TARGET_PRINTER', Dock: $TARGET_DOCK"
+
+if [ -n "$TARGET_PRINTER" ] && [ "$TARGET_PRINTER" != "$CURRENT_PRINTER" ]; then
+    lpoptions -d "$TARGET_PRINTER"
+    log "Принтер переключён: '$CURRENT_PRINTER' → '$TARGET_PRINTER'"
+else
+    log "Принтер уже '$CURRENT_PRINTER' — менять не нужно"
 fi
 
-if [ "$TARGET_PRINTER" = "$CURRENT_PRINTER" ]; then
-    log "Printer already set to '$TARGET_PRINTER' — no change needed"
-    exit 0
+# --- Dock ---
+CURRENT_DOCK=$(defaults read com.apple.dock orientation 2>/dev/null)
+log "Текущий Dock: '$CURRENT_DOCK'"
+
+if [ "$CURRENT_DOCK" != "$TARGET_DOCK" ]; then
+    defaults write com.apple.dock orientation -string "$TARGET_DOCK"
+    killall Dock
+    log "Dock переключён: '$CURRENT_DOCK' → '$TARGET_DOCK'"
+else
+    log "Dock уже '$CURRENT_DOCK' — менять не нужно"
 fi
 
-log "Switching: '$CURRENT_PRINTER' → '$TARGET_PRINTER'"
-lpoptions -d "$TARGET_PRINTER"
-log "lpoptions executed"
+# --- Уведомление ---
+if [ "$TARGET_PRINTER" != "$CURRENT_PRINTER" ] || [ "$CURRENT_DOCK" != "$TARGET_DOCK" ]; then
+    osascript -e "display notification \"Принтер: $TARGET_PRINTER | Dock: $TARGET_DOCK\" with title \"Переключено: $LOCATION\""
+    log "Уведомление отправлено"
+fi
 
-osascript -e "display notification \"Printer: $TARGET_PRINTER\" with title \"Printer Switched\""
-log "Notification sent"
-log "--- Done ---"
+log "--- Готово ---"
